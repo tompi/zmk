@@ -10,6 +10,15 @@ config ZMK_BEHAVIOR_METADATA
 config ZMK_BEHAVIOR_LOCAL_IDS
     bool "Local IDs"
 
+config ZMK_BEHAVIOR_RUNTIME_SETTINGS
+    bool "Runtime settings"
+    depends on SETTINGS && ZMK_BEHAVIOR_LOCAL_IDS
+    default y if ZMK_STUDIO_RPC
+    help
+      Let behaviors that support it, such as hold-tap, have settings like their
+      tapping term changed at runtime (for example from ZMK Studio) and saved
+      to the settings storage.
+
 if ZMK_BEHAVIOR_LOCAL_IDS
 
 config ZMK_BEHAVIOR_LOCAL_IDS_IN_BINDINGS

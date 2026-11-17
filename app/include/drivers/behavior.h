@@ -81,6 +81,36 @@ enum behavior_locality {
     BEHAVIOR_LOCALITY_GLOBAL
 };
 
+#if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_RUNTIME_SETTINGS)
+
+enum behavior_setting_type {
+    BEHAVIOR_SETTING_TYPE_RANGE,
+    BEHAVIOR_SETTING_TYPE_OPTIONS,
+    BEHAVIOR_SETTING_TYPE_TOGGLE,
+};
+
+/**
+ * A setting of a behavior instance that can be changed at runtime, such as a hold-tap's
+ * tapping term. Values are int32: a number for a range, the index of the chosen option for
+ * options, and 0 or 1 for a toggle.
+ */
+struct behavior_setting_metadata {
+    uint8_t id;
+    const char *display_name;
+    enum behavior_setting_type type;
+    int32_t min;
+    int32_t max;
+    const char *unit;
+    const char *const *options;
+    size_t options_len;
+};
+
+typedef int (*behavior_get_setting_t)(const struct device *dev, uint8_t id, int32_t *value,
+                                      int32_t *default_value);
+typedef int (*behavior_set_setting_t)(const struct device *dev, uint8_t id, int32_t value);
+
+#endif // IS_ENABLED(CONFIG_ZMK_BEHAVIOR_RUNTIME_SETTINGS)
+
 __subsystem struct behavior_driver_api {
     enum behavior_locality locality;
     behavior_keymap_binding_callback_t binding_convert_central_state_dependent_params;
@@ -92,6 +122,12 @@ __subsystem struct behavior_driver_api {
     behavior_get_parameter_metadata_t get_parameter_metadata;
     const struct behavior_parameter_metadata *parameter_metadata;
 #endif // IS_ENABLED(CONFIG_ZMK_BEHAVIOR_METADATA)
+#if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_RUNTIME_SETTINGS)
+    const struct behavior_setting_metadata *settings;
+    size_t settings_len;
+    behavior_get_setting_t get_setting;
+    behavior_set_setting_t set_setting;
+#endif // IS_ENABLED(CONFIG_ZMK_BEHAVIOR_RUNTIME_SETTINGS)
 };
 /**
  * @endcond

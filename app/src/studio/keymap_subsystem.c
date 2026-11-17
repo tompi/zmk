@@ -16,6 +16,17 @@ LOG_MODULE_DECLARE(zmk_studio, CONFIG_ZMK_STUDIO_LOG_LEVEL);
 #include <zmk/studio/rpc.h>
 #include <zmk/physical_layouts.h>
 
+#if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_RUNTIME_SETTINGS)
+#include <zmk/behavior_settings.h>
+#define BEHAVIOR_SETTINGS_UNSAVED() zmk_behavior_settings_check_unsaved_changes()
+#define BEHAVIOR_SETTINGS_SAVE() zmk_behavior_settings_save_changes()
+#define BEHAVIOR_SETTINGS_DISCARD() zmk_behavior_settings_discard_changes()
+#else
+#define BEHAVIOR_SETTINGS_UNSAVED() false
+#define BEHAVIOR_SETTINGS_SAVE() 0
+#define BEHAVIOR_SETTINGS_DISCARD() 0
+#endif
+
 #include <pb_encode.h>
 
 ZMK_RPC_SUBSYSTEM(keymap)
@@ -177,7 +188,8 @@ zmk_studio_Response check_unsaved_changes(const zmk_studio_Request *req) {
     int layout_changes = zmk_physical_layouts_check_unsaved_selection();
     int keymap_changes = zmk_keymap_check_unsaved_changes();
 
-    return KEYMAP_RESPONSE(check_unsaved_changes, layout_changes > 0 || keymap_changes > 0);
+    return KEYMAP_RESPONSE(check_unsaved_changes,
+                           layout_changes > 0 || keymap_changes > 0 || BEHAVIOR_SETTINGS_UNSAVED());
 }
 
 static void map_errno_to_save_resp(int err, zmk_keymap_SaveChangesResponse *resp) {
@@ -217,6 +229,13 @@ zmk_studio_Response save_changes(const zmk_studio_Request *req) {
         return KEYMAP_RESPONSE(save_changes, resp);
     }
 
+    ret = BEHAVIOR_SETTINGS_SAVE();
+    if (ret < 0) {
+        LOG_WRN("Failed to save behavior settings (%d)", ret);
+        map_errno_to_save_resp(ret, &resp);
+        return KEYMAP_RESPONSE(save_changes, resp);
+    }
+
     raise_zmk_studio_rpc_notification((struct zmk_studio_rpc_notification){
         .notification = KEYMAP_NOTIFICATION(unsaved_changes_status_changed, false)});
 
@@ -231,6 +250,11 @@ zmk_studio_Response discard_changes(const zmk_studio_Request *req) {
     }
 
     ret = zmk_keymap_discard_changes();
+    if (ret < 0) {
+        return ZMK_RPC_SIMPLE_ERR(GENERIC);
+    }
+
+    ret = BEHAVIOR_SETTINGS_DISCARD();
     if (ret < 0) {
         return ZMK_RPC_SIMPLE_ERR(GENERIC);
     }
